@@ -1,35 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PasteInput from "@/components/signal-audit/PasteInput";
-import ValueSection from "@/components/signal-audit/ValueSection";
-import LocationSection from "@/components/signal-audit/LocationSection";
-import CorroborationSection from "@/components/signal-audit/CorroborationSection";
-import ContextSection from "@/components/signal-audit/ContextSection";
-import AuditOutput from "@/components/signal-audit/AuditOutput";
-import { ValueEntry, ConditionalRule } from "@/components/signal-audit/types";
+import { AuditReport } from "@/components/signal-audit/AuditReport";
 
 export default function SignalAuditPage() {
-  // Core state
   const [pasteContent, setPasteContent] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  const [values, setValues] = useState<ValueEntry[]>([]);
-  const [locations, setLocations] = useState<Record<number, string>>({});
-  const [corroboration, setCorroboration] = useState<Record<number, string>>(
-    {}
-  );
-  const [absolutes, setAbsolutes] = useState<string[]>([]);
-  const [conditionals, setConditionals] = useState<ConditionalRule[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [audit, setAudit] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasExtracted, setHasExtracted] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
-  // Extract handler — calls API route
   const handleExtract = async () => {
     setIsExtracting(true);
     setError(null);
-    setShowResults(false);
+    setAudit(null);
 
     try {
       const res = await fetch("/api/extract", {
@@ -41,22 +28,16 @@ export default function SignalAuditPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Extraction failed. Please try again.");
+        setError(data.error || "Audit failed. Please try again.");
         return;
       }
 
-      setValues(data.values);
+      setAudit(data.audit);
 
-      // Pre-populate locations and corroboration from AI guesses
-      const locs: Record<number, string> = {};
-      const corrs: Record<number, string> = {};
-      data.values.forEach((v: ValueEntry, i: number) => {
-        locs[i] = v.locationGuess || "";
-        corrs[i] = v.corroborationGuess || "";
-      });
-      setLocations(locs);
-      setCorroboration(corrs);
-      setHasExtracted(true);
+      // Scroll to report after a brief delay for animation
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {
@@ -64,36 +45,14 @@ export default function SignalAuditPage() {
     }
   };
 
-  // When values change (add/remove), sync locations and corroboration indexes
-  const handleSetValues = (newValues: ValueEntry[]) => {
-    setValues(newValues);
-
-    // Rebuild location and corroboration maps for new indices
-    const newLocs: Record<number, string> = {};
-    const newCorrs: Record<number, string> = {};
-    newValues.forEach((_, i) => {
-      newLocs[i] = locations[i] || "";
-      newCorrs[i] = corroboration[i] || "";
-    });
-    setLocations(newLocs);
-    setCorroboration(newCorrs);
-    setShowResults(false);
-  };
-
-  const handleRunAudit = () => {
-    setShowResults(true);
-  };
-
   return (
     <main className="min-h-screen bg-navy-deep">
       {/* Header */}
       <header className="border-b border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
-          <div>
-            <p className="text-white/60 text-xs uppercase tracking-widest font-body">
-              The CX Evolutionist
-            </p>
-          </div>
+          <p className="text-white/60 text-xs uppercase tracking-widest font-body">
+            The CX Evolutionist
+          </p>
           <a
             href="https://www.thecxevolutionist.ai"
             target="_blank"
@@ -127,9 +86,8 @@ export default function SignalAuditPage() {
         </motion.p>
       </section>
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-24 space-y-10">
-        {/* Step 1: Paste */}
+      {/* Paste Section */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -143,14 +101,14 @@ export default function SignalAuditPage() {
           />
         </motion.div>
 
-        {/* Error Display */}
+        {/* Error */}
         <AnimatePresence>
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-2xl mx-auto px-4 sm:px-6"
+              className="max-w-2xl mx-auto mt-6 px-4 sm:px-6"
             >
               <div className="bg-red-400/10 border-l-4 border-red-400 p-4 rounded">
                 <p className="text-red-300 text-sm">{error}</p>
@@ -158,94 +116,25 @@ export default function SignalAuditPage() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Extracted Sections */}
-        <AnimatePresence>
-          {hasExtracted && values.length > 0 && (
-            <motion.div
-              className="space-y-10"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, staggerChildren: 0.15 }}
-            >
-              {/* Section 01: Values */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 }}
-              >
-                <ValueSection
-                  values={values}
-                  setValues={handleSetValues}
-                />
-              </motion.div>
-
-              {/* Section 02: Locations */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-              >
-                <LocationSection
-                  values={values}
-                  locations={locations}
-                  setLocations={(locs) => {
-                    setLocations(locs);
-                    setShowResults(false);
-                  }}
-                />
-              </motion.div>
-
-              {/* Section 03: Corroboration */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-              >
-                <CorroborationSection
-                  values={values}
-                  corroboration={corroboration}
-                  setCorroboration={(corrs) => {
-                    setCorroboration(corrs);
-                    setShowResults(false);
-                  }}
-                />
-              </motion.div>
-
-              {/* Section 04: Context Rules */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
-              >
-                <ContextSection
-                  absolutes={absolutes}
-                  setAbsolutes={setAbsolutes}
-                  conditionals={conditionals}
-                  setConditionals={setConditionals}
-                />
-              </motion.div>
-
-              {/* Audit Output */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.5 }}
-              >
-                <AuditOutput
-                  values={values}
-                  locations={locations}
-                  corroboration={corroboration}
-                  absolutes={absolutes}
-                  conditionals={conditionals}
-                  onRunAudit={handleRunAudit}
-                  showResults={showResults}
-                />
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Audit Report */}
+      <AnimatePresence>
+        {audit && (
+          <motion.div
+            ref={reportRef}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="border-t border-cyan/20">
+              <div className="max-w-5xl mx-auto">
+                <AuditReport audit={audit} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8">
