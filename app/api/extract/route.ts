@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "meta-llama/Llama-3.3-70B-Instruct",
+          model: "hf:meta-llama/Llama-3.3-70B-Instruct",
           messages: [
             { role: "system", content: EXTRACTION_PROMPT },
             { role: "user", content: trimmedContent },
@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
       const errText = await res.text();
       console.error("Synthetic API error:", res.status, errText);
       return NextResponse.json(
-        { error: "Extraction service unavailable. Please try again." },
+        {
+          error: `Synthetic API returned ${res.status}: ${errText.slice(0, 200)}`,
+          debug: { status: res.status, keyPrefix: apiKey.slice(0, 8) + "..." },
+        },
         { status: 502 }
       );
     }
