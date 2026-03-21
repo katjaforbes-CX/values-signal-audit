@@ -185,18 +185,23 @@ export default function SignalAuditPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-white/5 bg-navy-deep/80 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <a
-            href="https://www.thecxevolutionist.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/CXEvoLogo.png"
-              alt="The CX Evolutionist"
-              className="h-8 sm:h-10 w-auto"
-            />
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://www.thecxevolutionist.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/CXEvoLogo.png"
+                alt="The CX Evolutionist"
+                className="h-8 sm:h-10 w-auto"
+              />
+            </a>
+            <span className="text-[9px] sm:text-[10px] font-body uppercase tracking-widest text-cyan/60 border border-cyan/30 rounded px-1.5 py-0.5 leading-none">
+              Beta
+            </span>
+          </div>
           <a
             href="https://www.thecxevolutionist.ai/work-with-katja"
             target="_blank"
