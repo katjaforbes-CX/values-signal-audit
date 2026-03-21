@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const PORTAL_ID = "244677595";
+const FORM_GUID = "dbd96392-5c7a-912e-aad8-8609b1ec491e";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email, firstName, lastName, company } = await req.json();
+
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { error: "Email is required." },
+        { status: 400 }
+      );
+    }
+
+    const fields = [
+      { objectTypeId: "0-1", name: "email", value: email },
+    ];
+
+    if (firstName) {
+      fields.push({ objectTypeId: "0-1", name: "firstname", value: firstName });
+    }
+    if (lastName) {
+      fields.push({ objectTypeId: "0-1", name: "lastname", value: lastName });
+    }
+    if (company) {
+      fields.push({ objectTypeId: "0-1", name: "company", value: company });
+    }
+
+    const res = await fetch(
+      `https://api.hsforms.com/submissions/v3/integration/submit/${PORTAL_ID}/${FORM_GUID}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields,
+          context: {
+            pageName: "Stratospheric Signal Audit",
+            pageUri: "https://tools.thecxevolutionist.ai",
+          },
+          legalConsentOptions: {
+            consent: {
+              consentToProcess: true,
+              text: "By running this audit, you agree to receive occasional insights from The CX Evolutionist. You can unsubscribe anytime.",
+            },
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("HubSpot form error:", res.status, errText);
+      // Don't block the audit if HubSpot fails — log and continue
+      return NextResponse.json({ status: "error", detail: errText }, { status: 200 });
+    }
+
+    return NextResponse.json({ status: "ok" });
+  } catch (err) {
+    console.error("HubSpot route error:", err);
+    // Don't block the audit
+    return NextResponse.json({ status: "error" }, { status: 200 });
+  }
+}
