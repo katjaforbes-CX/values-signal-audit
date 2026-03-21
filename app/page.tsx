@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import PasteInput from "@/components/signal-audit/PasteInput";
+import URLInput from "@/components/signal-audit/URLInput";
 import { AuditReport } from "@/components/signal-audit/AuditReport";
 
 export default function SignalAuditPage() {
+  const [url, setUrl] = useState("");
   const [pasteContent, setPasteContent] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionStep, setExtractionStep] = useState("");
@@ -14,35 +15,132 @@ export default function SignalAuditPage() {
   const [error, setError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Simulate step progression based on timing
-  // (The API does all 3 steps server-side — we approximate client-side)
+  // Email gate state
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+
   useEffect(() => {
     if (!isExtracting) {
       setExtractionStep("");
       return;
     }
+    // If we have a URL, start with "crawling" step; otherwise skip to extracting
+    const hasUrl = url.trim().length > 0 && /^https?:\/\/.+\..+/.test(url.trim());
+    if (hasUrl) {
+      setExtractionStep("crawling");
+      const t1 = setTimeout(() => setExtractionStep("extracting"), 5000);
+      const t2 = setTimeout(() => setExtractionStep("researching"), 10000);
+      const t3 = setTimeout(() => setExtractionStep("auditing"), 18000);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    } else {
+      setExtractionStep("extracting");
+      const t1 = setTimeout(() => setExtractionStep("researching"), 4000);
+      const t2 = setTimeout(() => setExtractionStep("auditing"), 12000);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [isExtracting, url]);
 
-    setExtractionStep("extracting");
+  // Step 1: User clicks "Run my audit" → show email gate
+  const handleRequestAudit = () => {
+    if (emailSubmitted) {
+      runAudit();
+    } else {
+      setShowEmailGate(true);
+    }
+  };
 
-    const t1 = setTimeout(() => setExtractionStep("researching"), 4000);
-    const t2 = setTimeout(() => setExtractionStep("auditing"), 12000);
+  // Step 2: User submits email → send to HubSpot → run audit
+  const handleEmailSubmit = async () => {
+    if (!email.trim()) return;
 
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [isExtracting]);
+    // Submit to HubSpot (fire and forget — don't block audit)
+    fetch("/api/hubspot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        company: company.trim(),
+      }),
+    }).catch(() => {});
 
-  const handleExtract = async () => {
+    setEmailSubmitted(true);
+    setShowEmailGate(false);
+    runAudit();
+  };
+
+  // Step 3: Actually run the audit
+  const runAudit = async () => {
     setIsExtracting(true);
     setError(null);
     setAudit(null);
 
     try {
+      let contentForAudit = pasteContent;
+
+      // If URL provided, scrape it first
+      const trimmedUrl = url.trim();
+      const hasUrl = trimmedUrl.length > 0 && /^https?:\/\/.+\..+/.test(trimmedUrl);
+
+      if (hasUrl) {
+        // Also normalise URL without protocol for user convenience
+        let normalizedUrl = trimmedUrl;
+        if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
+          normalizedUrl = "https://" + normalizedUrl;
+        }
+
+        const scrapeRes = await fetch("/api/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: normalizedUrl }),
+        });
+
+        const scrapeData = await scrapeRes.json();
+
+        if (!scrapeRes.ok) {
+          // If scrape failed but we have paste content, fall back to that
+          if (pasteContent.trim().length > 0) {
+            contentForAudit = pasteContent;
+          } else {
+            setError(
+              scrapeData.error ||
+                "Couldn't read that website. Try pasting your content directly instead."
+            );
+            return;
+          }
+        } else {
+          // Combine scraped content with any pasted content
+          contentForAudit = scrapeData.content;
+          if (pasteContent.trim().length > 0) {
+            contentForAudit +=
+              "\n\n=== ADDITIONAL CONTENT PROVIDED BY USER ===\n" +
+              pasteContent;
+          }
+        }
+      }
+
+      if (!contentForAudit || contentForAudit.trim().length === 0) {
+        setError("Please enter a URL or paste your content to run the audit.");
+        return;
+      }
+
+      // Now run the extract/audit pipeline
       const res = await fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: pasteContent }),
+        body: JSON.stringify({ content: contentForAudit }),
       });
 
       const data = await res.json();
@@ -53,7 +151,6 @@ export default function SignalAuditPage() {
       }
 
       setAudit(data.audit);
-
       setTimeout(() => {
         reportRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 300);
@@ -63,6 +160,8 @@ export default function SignalAuditPage() {
       setIsExtracting(false);
     }
   };
+
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   return (
     <main className="min-h-screen bg-navy-deep">
@@ -105,17 +204,19 @@ export default function SignalAuditPage() {
         </motion.p>
       </section>
 
-      {/* Paste Section */}
+      {/* Input Section */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <PasteInput
+          <URLInput
+            url={url}
+            setUrl={setUrl}
             pasteContent={pasteContent}
             setPasteContent={setPasteContent}
-            onExtract={handleExtract}
+            onAudit={handleRequestAudit}
             isExtracting={isExtracting}
             extractionStep={extractionStep}
           />
@@ -137,6 +238,87 @@ export default function SignalAuditPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Email Gate Modal */}
+      <AnimatePresence>
+        {showEmailGate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowEmailGate(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3 }}
+              className="bg-navy rounded-2xl p-8 max-w-md w-full border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-heading text-2xl text-white mb-2">
+                BEFORE WE AUDIT
+              </h3>
+              <p className="font-body text-sm text-white/60 mb-6">
+                Enter your details to run the audit.
+              </p>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="First name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="bg-navy-deep border border-white/10 rounded-lg p-3 text-white placeholder-white/30 text-sm focus:border-cyan focus:ring-2 focus:ring-cyan/20 transition-colors"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Last name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="bg-navy-deep border border-white/10 rounded-lg p-3 text-white placeholder-white/30 text-sm focus:border-cyan focus:ring-2 focus:ring-cyan/20 transition-colors"
+                  />
+                </div>
+
+                <input
+                  type="email"
+                  placeholder="Email *"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-navy-deep border border-white/10 rounded-lg p-3 text-white placeholder-white/30 text-sm focus:border-cyan focus:ring-2 focus:ring-cyan/20 transition-colors"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Company name"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="w-full bg-navy-deep border border-white/10 rounded-lg p-3 text-white placeholder-white/30 text-sm focus:border-cyan focus:ring-2 focus:ring-cyan/20 transition-colors"
+                />
+              </div>
+
+              <p className="font-body text-xs text-white/40 mt-4 mb-6">
+                By running this audit, you agree to receive occasional insights
+                from The CX Evolutionist. Unsubscribe anytime.
+              </p>
+
+              <button
+                onClick={handleEmailSubmit}
+                disabled={!isValidEmail}
+                className={`w-full py-3 font-heading text-base uppercase rounded-full transition-all duration-200 ${
+                  isValidEmail
+                    ? "bg-orange hover:bg-orange-hover text-white cursor-pointer"
+                    : "bg-gray-600 text-gray-300 cursor-not-allowed"
+                }`}
+              >
+                RUN MY AUDIT
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Audit Report */}
       <AnimatePresence>
