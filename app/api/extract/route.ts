@@ -135,32 +135,61 @@ export async function POST(req: NextRequest) {
 
     let audit;
     try {
-      // Strip markdown fences, preamble text, and trailing junk
+      // Strip markdown fences and preamble
       let cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
 
-      // Find the first { and last } to extract the JSON object
+      // Extract the JSON object between first { and last }
       const firstBrace = cleaned.indexOf("{");
       const lastBrace = cleaned.lastIndexOf("}");
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
         cleaned = cleaned.slice(firstBrace, lastBrace + 1);
       }
 
-      audit = JSON.parse(cleaned);
-    } catch {
-      console.error("Failed to parse audit response. Finish reason:", finishReason, "Raw (first 500):", raw.slice(0, 500));
+      // Fix unescaped newlines inside JSON string values
+      // Replace literal newlines inside strings with \n escape sequences
+      cleaned = cleaned.replace(/(?<=:\s*"(?:[^"\\]|\\.)*)[\n\r]+(?=(?:[^"\\]|\\.)*")/g, "\\n");
 
-      // If truncated, tell the user specifically
-      if (finishReason === "length") {
+      audit = JSON.parse(cleaned);
+    } catch (parseErr) {
+      // Fallback: try aggressive cleanup — replace ALL newlines then parse
+      try {
+        let fallback = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+        const fb = fallback.indexOf("{");
+        const lb = fallback.lastIndexOf("}");
+        if (fb !== -1 && lb !== -1) fallback = fallback.slice(fb, lb + 1);
+
+        // Replace newlines between quotes with escaped newlines
+        fallback = fallback
+          .split("\n")
+          .map((line: string) => line.trimEnd())
+          .join("")
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]");
+
+        audit = JSON.parse(fallback);
+      } catch {
+        console.error(
+          "Failed to parse audit response. Finish reason:",
+          finishReason,
+          "Raw (first 1000):",
+          raw.slice(0, 1000)
+        );
+
+        if (finishReason === "length") {
+          return NextResponse.json(
+            {
+              error:
+                "The audit response was too long and got cut off. Try pasting a shorter excerpt of your content.",
+            },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json(
-          { error: "The audit response was too long and got cut off. Try pasting a shorter excerpt of your content." },
+          { error: "Could not parse audit results. Please try again." },
           { status: 500 }
         );
       }
-
-      return NextResponse.json(
-        { error: "Could not parse audit results. Please try again." },
-        { status: 500 }
-      );
     }
 
     return NextResponse.json({ audit });
