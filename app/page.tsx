@@ -201,7 +201,7 @@ export default function SignalAuditPage() {
             href="https://www.thecxevolutionist.ai/work-with-katja"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-heading uppercase tracking-wide text-orange hover:text-orange-hover transition-colors"
+            className="text-[13px] sm:text-[17px] font-heading uppercase tracking-wider text-orange hover:text-orange-hover transition-colors"
           >
             Work with Katja
           </a>
