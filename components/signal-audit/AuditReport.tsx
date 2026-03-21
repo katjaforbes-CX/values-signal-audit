@@ -388,9 +388,17 @@ export const AuditReport: React.FC<AuditReportProps> = ({ audit }) => {
         </motion.div>
       </motion.section>
 
-      {/* Companion Prompt Section */}
+      {/* Step 2: Companion Prompt Section */}
       <motion.section variants={itemVariants} className="mb-12">
-        <h2 className="text-2xl font-heading mb-6">Companion Prompt</h2>
+        <div className="flex items-start gap-4 sm:gap-6 mb-6">
+          <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan flex items-center justify-center">
+            <span className="font-heading text-lg sm:text-xl text-navy-deep">2</span>
+          </div>
+          <div className="flex-1 pt-1">
+            <h2 className="text-xl sm:text-2xl font-heading text-white uppercase mb-1">Get Customised Actions</h2>
+            <p className="font-body text-sm text-white/50">Paste your brief and prompt into your favourite AI for personalised next steps</p>
+          </div>
+        </div>
 
         {/* Brief Section */}
         <div className="mb-8">
@@ -412,6 +420,30 @@ export const AuditReport: React.FC<AuditReportProps> = ({ audit }) => {
             {COMPANION_PROMPT_TEMPLATE}
           </div>
           <CopyButton text={COMPANION_PROMPT_TEMPLATE} label="Prompt" />
+        </div>
+      </motion.section>
+
+      {/* Step 3: Book a Call */}
+      <motion.section variants={itemVariants} className="mb-12">
+        <div className="flex items-start gap-4 sm:gap-6 mb-6">
+          <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan flex items-center justify-center">
+            <span className="font-heading text-lg sm:text-xl text-navy-deep">3</span>
+          </div>
+          <div className="flex-1 pt-1">
+            <h2 className="text-xl sm:text-2xl font-heading text-white uppercase mb-1">Talk to Katja</h2>
+            <p className="font-body text-sm text-white/50">Want help getting to Stratospheric altitude? Book a call to discuss how Katja can help</p>
+          </div>
+        </div>
+
+        <div className="text-center py-8">
+          <a
+            href="https://www.thecxevolutionist.ai/scheduling"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block bg-orange hover:bg-orange-hover text-white font-heading text-base sm:text-lg uppercase px-10 py-4 rounded-full transition-all duration-200"
+          >
+            Book a Call with Katja
+          </a>
         </div>
       </motion.section>
     </motion.div>

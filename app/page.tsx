@@ -230,13 +230,22 @@ export default function SignalAuditPage() {
         </motion.p>
       </section>
 
-      {/* Input Section */}
+      {/* Step 1: Input Section */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
+          <div className="flex items-start gap-4 sm:gap-6">
+            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-cyan flex items-center justify-center">
+              <span className="font-heading text-lg sm:text-xl text-navy-deep">1</span>
+            </div>
+            <div className="flex-1 pt-1">
+              <h2 className="font-heading text-xl sm:text-2xl text-white uppercase mb-1">Run Your Audit</h2>
+              <p className="font-body text-sm text-white/50 mb-6">Enter your website URL or paste your content below</p>
+            </div>
+          </div>
           <URLInput
             url={url}
             setUrl={setUrl}
