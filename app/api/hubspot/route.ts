@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
     if (websiteUrl) {
       fields.push({ objectTypeId: "0-1", name: "website", value: websiteUrl });
     }
-
     const res = await fetch(
       `https://api.hsforms.com/submissions/v3/integration/submit/${PORTAL_ID}/${FORM_GUID}`,
       {
