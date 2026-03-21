@@ -183,6 +183,9 @@ async function callLLM(
 
   if (!res.ok) {
     const errText = await res.text();
+    if (res.status === 429) {
+      throw new Error("RATE_LIMITED");
+    }
     throw new Error(`Synthetic API ${res.status}: ${errText.slice(0, 200)}`);
   }
 
@@ -228,6 +231,12 @@ export async function POST(req: NextRequest) {
       extraction = result.parsed as typeof extraction;
     } catch (err) {
       console.error("Step 1 failed:", err);
+      if (err instanceof Error && err.message === "RATE_LIMITED") {
+        return NextResponse.json(
+          { error: "This tool is experiencing high demand right now. Please try again in a few minutes." },
+          { status: 429 }
+        );
+      }
       return NextResponse.json(
         { error: "Failed to extract values from your content. Please try again." },
         { status: 500 }
@@ -291,6 +300,12 @@ export async function POST(req: NextRequest) {
       audit = result.parsed;
     } catch (err) {
       console.error("Step 3 failed:", err);
+      if (err instanceof Error && err.message === "RATE_LIMITED") {
+        return NextResponse.json(
+          { error: "This tool is experiencing high demand right now. Please try again in a few minutes." },
+          { status: 429 }
+        );
+      }
       return NextResponse.json(
         { error: "Failed to generate audit report. Please try again." },
         { status: 500 }
