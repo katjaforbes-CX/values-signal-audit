@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
             { role: "user", content: trimmedContent },
           ],
           temperature: 0.2,
-          max_tokens: 4096,
+          max_tokens: 8192,
         }),
       }
     );
@@ -131,13 +131,32 @@ export async function POST(req: NextRequest) {
 
     const data = await res.json();
     const raw = data.choices?.[0]?.message?.content ?? "{}";
+    const finishReason = data.choices?.[0]?.finish_reason;
 
     let audit;
     try {
-      const cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      // Strip markdown fences, preamble text, and trailing junk
+      let cleaned = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+
+      // Find the first { and last } to extract the JSON object
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+      }
+
       audit = JSON.parse(cleaned);
     } catch {
-      console.error("Failed to parse audit response:", raw);
+      console.error("Failed to parse audit response. Finish reason:", finishReason, "Raw (first 500):", raw.slice(0, 500));
+
+      // If truncated, tell the user specifically
+      if (finishReason === "length") {
+        return NextResponse.json(
+          { error: "The audit response was too long and got cut off. Try pasting a shorter excerpt of your content." },
+          { status: 500 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Could not parse audit results. Please try again." },
         { status: 500 }
