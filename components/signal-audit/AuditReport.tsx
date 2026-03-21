@@ -38,6 +38,7 @@ interface AuditReportProps {
       impact: string;
       effort: string;
     }>;
+    webResearchSummary?: string;
     companionPromptBrief: string;
   };
 }
@@ -208,6 +209,16 @@ export const AuditReport: React.FC<AuditReportProps> = ({ audit }) => {
           {audit.summary}
         </p>
       </motion.section>
+
+      {/* Web Research Summary */}
+      {audit.webResearchSummary && (
+        <motion.section variants={itemVariants} className="mb-12 bg-cyan/5 border border-cyan/20 rounded-lg p-8">
+          <h2 className="text-2xl font-heading mb-4 text-cyan">What We Found Online</h2>
+          <p className="text-gray-300 leading-relaxed">
+            {audit.webResearchSummary}
+          </p>
+        </motion.section>
+      )}
 
       {/* Altitude Score Section */}
       <motion.section

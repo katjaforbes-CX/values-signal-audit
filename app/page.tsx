@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import PasteInput from "@/components/signal-audit/PasteInput";
 import { AuditReport } from "@/components/signal-audit/AuditReport";
@@ -8,10 +8,30 @@ import { AuditReport } from "@/components/signal-audit/AuditReport";
 export default function SignalAuditPage() {
   const [pasteContent, setPasteContent] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionStep, setExtractionStep] = useState("");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [audit, setAudit] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Simulate step progression based on timing
+  // (The API does all 3 steps server-side — we approximate client-side)
+  useEffect(() => {
+    if (!isExtracting) {
+      setExtractionStep("");
+      return;
+    }
+
+    setExtractionStep("extracting");
+
+    const t1 = setTimeout(() => setExtractionStep("researching"), 4000);
+    const t2 = setTimeout(() => setExtractionStep("auditing"), 12000);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isExtracting]);
 
   const handleExtract = async () => {
     setIsExtracting(true);
@@ -34,7 +54,6 @@ export default function SignalAuditPage() {
 
       setAudit(data.audit);
 
-      // Scroll to report after a brief delay for animation
       setTimeout(() => {
         reportRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 300);
@@ -98,6 +117,7 @@ export default function SignalAuditPage() {
             setPasteContent={setPasteContent}
             onExtract={handleExtract}
             isExtracting={isExtracting}
+            extractionStep={extractionStep}
           />
         </motion.div>
 
@@ -108,7 +128,7 @@ export default function SignalAuditPage() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-2xl mx-auto mt-6 px-4 sm:px-6"
+              className="max-w-3xl mx-auto mt-6"
             >
               <div className="bg-red-400/10 border-l-4 border-red-400 p-4 rounded">
                 <p className="text-red-300 text-sm">{error}</p>
