@@ -198,12 +198,12 @@ export default function SignalAuditPage() {
             />
           </a>
           <a
-            href="https://www.thecxevolutionist.ai"
+            href="https://www.thecxevolutionist.ai/work-with-katja"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-white/60 text-sm font-body hover:text-cyan transition-colors"
+            className="text-sm font-heading uppercase tracking-wide text-orange hover:text-orange-hover transition-colors"
           >
-            thecxevolutionist.ai
+            Work with Katja
           </a>
         </div>
       </header>
@@ -225,7 +225,7 @@ export default function SignalAuditPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           If a machine customer arrived at your front door right now with a set
-          of values its human principal has encoded, could it read who you are —
+          of values its human principal has encoded, could it read who you are
           and find independent evidence that you actually live those values?
         </motion.p>
       </section>
