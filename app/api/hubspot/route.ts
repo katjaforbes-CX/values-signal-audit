@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
           fields,
           context: {
             pageName: "Stratospheric Signal Audit",
-            pageUri: "https://tools.thecxevolutionist.ai",
+            pageUri: "https://values-signal.thecxevolutionist.ai",
           },
           legalConsentOptions: {
             consent: {
