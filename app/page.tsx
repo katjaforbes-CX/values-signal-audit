@@ -183,16 +183,25 @@ export default function SignalAuditPage() {
   return (
     <main className="min-h-screen bg-navy-deep">
       {/* Header */}
-      <header className="border-b border-white/5">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
-          <p className="text-white/60 text-xs uppercase tracking-widest font-body">
-            The CX Evolutionist
-          </p>
+      <header className="sticky top-0 z-40 border-b border-white/5 bg-navy-deep/80 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <a
             href="https://www.thecxevolutionist.ai"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-cyan text-sm font-body hover:underline"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/CXEvoLogo.png"
+              alt="The CX Evolutionist"
+              className="h-8 sm:h-10 w-auto"
+            />
+          </a>
+          <a
+            href="https://www.thecxevolutionist.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/60 text-sm font-body hover:text-cyan transition-colors"
           >
             thecxevolutionist.ai
           </a>
@@ -200,17 +209,17 @@ export default function SignalAuditPage() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-16 pb-12 text-center">
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 pt-20 pb-14 text-center">
         <motion.h1
-          className="font-heading text-4xl sm:text-5xl md:text-6xl text-white uppercase leading-tight mb-6"
+          className="font-heading text-5xl sm:text-6xl md:text-7xl text-white uppercase leading-none mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          Stratospheric Signal Audit
+          Values Signal Audit
         </motion.h1>
         <motion.p
-          className="font-body text-lg sm:text-xl text-white/70 max-w-3xl mx-auto leading-relaxed"
+          className="font-body text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -271,7 +280,7 @@ export default function SignalAuditPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.3 }}
-              className="bg-navy rounded-2xl p-8 max-w-md w-full border border-white/10"
+              className="bg-navy rounded-[30px] p-8 max-w-md w-full border border-white/10 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="font-heading text-2xl text-white mb-2">
@@ -356,13 +365,22 @@ export default function SignalAuditPage() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-white/40 text-xs font-body">
-            Part of the Three Altitudes of Agentic Commerce framework.
-          </p>
-          <p className="text-white/30 text-xs font-body mt-1">
-            Katja Forbes / The CX Evolutionist
+      <footer className="border-t border-white/5 py-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-4">
+          <a
+            href="https://www.thecxevolutionist.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/CXEvoLogo.png"
+              alt="The CX Evolutionist"
+              className="h-7 w-auto opacity-60 hover:opacity-100 transition-opacity"
+            />
+          </a>
+          <p className="text-white/30 text-xs font-body">
+            Part of the Three Altitudes of Agentic Commerce framework
           </p>
         </div>
       </footer>
