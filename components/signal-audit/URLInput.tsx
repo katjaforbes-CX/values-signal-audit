@@ -24,7 +24,21 @@ export default function URLInput({
 }: URLInputProps) {
   const [showPaste, setShowPaste] = useState(false);
 
-  const isValidUrl = /^https?:\/\/.+\..+/.test(url.trim());
+  // Normalize URL: add https:// if user types www. or bare domain
+  const normalizeUrl = (input: string): string => {
+    const trimmed = input.trim();
+    if (!trimmed) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
+    // Looks like a bare domain (contains a dot, no spaces, no protocol)
+    if (/^[^\s]+\.[^\s]+$/.test(trimmed) && !trimmed.includes(' ')) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+
+  const normalizedUrl = normalizeUrl(url);
+  const isValidUrl = /^https?:\/\/.+\..+/.test(normalizedUrl);
   const hasPasteContent = pasteContent.trim().length > 0;
   const canSubmit = isValidUrl || hasPasteContent;
 

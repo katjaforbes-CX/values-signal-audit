@@ -5,6 +5,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import URLInput from "@/components/signal-audit/URLInput";
 import { AuditReport } from "@/components/signal-audit/AuditReport";
 
+function normalizeUrl(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
+  if (/^[^\s]+\.[^\s]+$/.test(trimmed) && !trimmed.includes(" ")) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
 export default function SignalAuditPage() {
   const [url, setUrl] = useState("");
   const [pasteContent, setPasteContent] = useState("");
@@ -29,7 +40,8 @@ export default function SignalAuditPage() {
       return;
     }
     // If we have a URL, start with "crawling" step; otherwise skip to extracting
-    const hasUrl = url.trim().length > 0 && /^https?:\/\/.+\..+/.test(url.trim());
+    const normalized = normalizeUrl(url);
+    const hasUrl = normalized.length > 0 && /^https?:\/\/.+\..+/.test(normalized);
     if (hasUrl) {
       setExtractionStep("crawling");
       const t1 = setTimeout(() => setExtractionStep("extracting"), 5000);
@@ -92,16 +104,10 @@ export default function SignalAuditPage() {
       let contentForAudit = pasteContent;
 
       // If URL provided, scrape it first
-      const trimmedUrl = url.trim();
-      const hasUrl = trimmedUrl.length > 0 && /^https?:\/\/.+\..+/.test(trimmedUrl);
+      const normalizedUrl = normalizeUrl(url);
+      const hasUrl = normalizedUrl.length > 0 && /^https?:\/\/.+\..+/.test(normalizedUrl);
 
       if (hasUrl) {
-        // Also normalise URL without protocol for user convenience
-        let normalizedUrl = trimmedUrl;
-        if (!normalizedUrl.startsWith("http://") && !normalizedUrl.startsWith("https://")) {
-          normalizedUrl = "https://" + normalizedUrl;
-        }
-
         const scrapeRes = await fetch("/api/scrape", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
