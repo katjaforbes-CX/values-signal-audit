@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const fields = [
+    const fields: Array<{ objectTypeId: string; name: string; value: string }> = [
       { objectTypeId: "0-1", name: "email", value: email },
     ];
 
@@ -24,9 +24,8 @@ export async function POST(req: NextRequest) {
     if (lastName) {
       fields.push({ objectTypeId: "0-1", name: "lastname", value: lastName });
     }
-    if (company) {
-      fields.push({ objectTypeId: "0-1", name: "company", value: company });
-    }
+    // Company name maps to the Company object (0-2), not Contact (0-1)
+    fields.push({ objectTypeId: "0-2", name: "name", value: company || "Unknown" });
     if (websiteUrl) {
       fields.push({ objectTypeId: "0-1", name: "website", value: websiteUrl });
     }
