@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     // Company name maps to the Company object (0-2), not Contact (0-1)
     fields.push({ objectTypeId: "0-2", name: "name", value: company || "Unknown" });
     if (websiteUrl) {
-      fields.push({ objectTypeId: "0-1", name: "website", value: websiteUrl });
+      fields.push({ objectTypeId: "0-1", name: "audited_url", value: websiteUrl });
     }
     // HubSpot doesn't apply hidden field defaults via API — must send explicitly
     fields.push({ objectTypeId: "0-1", name: "lead_origin_name", value: "Values Signal Audit" });
