@@ -73,6 +73,7 @@ export default function SignalAuditPage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         company: company.trim(),
+        websiteUrl: url.trim(),
       }),
     }).catch(() => {});
 
@@ -154,6 +155,22 @@ export default function SignalAuditPage() {
       setTimeout(() => {
         reportRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 300);
+
+      // Send report email to user and Katja (fire and forget)
+      if (email.trim()) {
+        fetch("/api/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            audit: data.audit,
+            email: email.trim(),
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            company: company.trim(),
+            websiteUrl: url.trim(),
+          }),
+        }).catch(() => {});
+      }
     } catch {
       setError("Network error. Please check your connection and try again.");
     } finally {

@@ -5,7 +5,7 @@ const FORM_GUID = "f658e497-1ea4-4baa-b621-826c7b1247b8";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, firstName, lastName, company } = await req.json();
+    const { email, firstName, lastName, company, websiteUrl } = await req.json();
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
     }
     if (company) {
       fields.push({ objectTypeId: "0-1", name: "company", value: company });
+    }
+    if (websiteUrl) {
+      fields.push({ objectTypeId: "0-1", name: "website", value: websiteUrl });
     }
 
     const res = await fetch(
