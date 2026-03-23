@@ -261,8 +261,10 @@ class PdfBuilder {
     const innerWidth = this.contentWidth - pad * 2;
 
     audit.values.forEach((v) => {
-      // Pre-calculate card height
+      // Pre-calculate wrapped lines for all long text fields
+      const visLocationLines = this.wrapText(v.currentVisibility.location, innerWidth - 8);
       const visAssessLines = this.wrapText(v.currentVisibility.assessment, innerWidth - 8);
+      const corrSourcesLines = this.wrapText(v.currentCorroboration.sources, innerWidth - 8);
       const corrAssessLines = this.wrapText(v.currentCorroboration.assessment, innerWidth - 8);
       const actionLines = v.gap && v.action ? this.wrapText(v.action, innerWidth - 8) : [];
 
@@ -271,13 +273,13 @@ class PdfBuilder {
       // Visibility section
       cardH += 6; // "VISIBILITY" label
       cardH += 5; // format line
-      cardH += 4; // location line
+      cardH += visLocationLines.length * 3.5; // location lines (wrapped)
       cardH += visAssessLines.length * 3.5 + 2; // assessment lines
       cardH += 3; // divider gap
       // Corroboration section
       cardH += 6; // "CORROBORATION" label
       cardH += 5; // level line
-      cardH += 4; // sources line
+      cardH += corrSourcesLines.length * 3.5; // sources lines (wrapped)
       cardH += corrAssessLines.length * 3.5 + 2; // assessment lines
       cardH += 3; // divider gap
       // Gap/action section
@@ -323,12 +325,14 @@ class PdfBuilder {
       this.doc.text(v.currentVisibility.format, this.margin + pad + 6, ty);
       ty += 4;
 
-      // Location
+      // Location (wrapped)
       this.doc.setFontSize(7);
       this.doc.setFont("helvetica", "normal");
       this.doc.setTextColor(...GRAY_400);
-      this.doc.text(v.currentVisibility.location, this.margin + pad + 6, ty);
-      ty += 4;
+      visLocationLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + pad + 6, ty);
+        ty += 3.5;
+      });
 
       // Assessment
       this.doc.setFontSize(7);
@@ -359,12 +363,14 @@ class PdfBuilder {
       this.doc.text(v.currentCorroboration.level, this.margin + pad + 6, ty);
       ty += 4;
 
-      // Sources
+      // Sources (wrapped)
       this.doc.setFontSize(7);
       this.doc.setFont("helvetica", "normal");
       this.doc.setTextColor(...GRAY_400);
-      this.doc.text(v.currentCorroboration.sources, this.margin + pad + 6, ty);
-      ty += 4;
+      corrSourcesLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + pad + 6, ty);
+        ty += 3.5;
+      });
 
       // Assessment
       this.doc.setFontSize(7);
