@@ -262,11 +262,13 @@ class PdfBuilder {
 
     audit.values.forEach((v) => {
       // Pre-calculate wrapped lines for all long text fields
-      const visLocationLines = this.wrapText(v.currentVisibility.location, innerWidth - 8);
-      const visAssessLines = this.wrapText(v.currentVisibility.assessment, innerWidth - 8);
-      const corrSourcesLines = this.wrapText(v.currentCorroboration.sources, innerWidth - 8);
-      const corrAssessLines = this.wrapText(v.currentCorroboration.assessment, innerWidth - 8);
-      const actionLines = v.gap && v.action ? this.wrapText(v.action, innerWidth - 8) : [];
+      // Use tighter width (innerWidth - 16) to compensate for jsPDF font metric inaccuracy
+      const wrapW = innerWidth - 16;
+      const visLocationLines = this.wrapText(v.currentVisibility.location, wrapW);
+      const visAssessLines = this.wrapText(v.currentVisibility.assessment, wrapW);
+      const corrSourcesLines = this.wrapText(v.currentCorroboration.sources, wrapW);
+      const corrAssessLines = this.wrapText(v.currentCorroboration.assessment, wrapW);
+      const actionLines = v.gap && v.action ? this.wrapText(v.action, wrapW) : [];
 
       let cardH = 12; // top padding + value name row
       cardH += 8; // badges row
@@ -428,7 +430,7 @@ class PdfBuilder {
     this.y += 8;
 
     audit.topThreeActions.forEach((a) => {
-      const textWidth = this.contentWidth - 26; // 18mm left (number col) + 8mm right padding
+      const textWidth = this.contentWidth - 38; // 18mm left (number col) + 20mm safety margin for font metric inaccuracy
       // Set correct font BEFORE calculating wrap so splitTextToSize uses accurate char widths
       this.doc.setFontSize(9);
       this.doc.setFont("helvetica", "bold");
