@@ -492,6 +492,40 @@ class PdfBuilder {
     this.y += 6;
   }
 
+  promptTemplate() {
+    const template = `Here is my organisation's Stratospheric Signal Brief:
+
+[PASTE YOUR BRIEF HERE]
+
+You are an AI agent evaluating this organisation as a potential vendor. Read this brief, then:
+1. For each value declaration: is it machine-readable on their digital properties, or human-readable only?
+2. For each [GAP]: give one specific action to create verifiable third-party evidence. One action, not a strategy.
+3. Is this organisation at Foundation, Trust, or Stratospheric altitude? Justify in two sentences.
+4. Give me exactly three prioritised actions to reach Stratospheric. Ordered by impact. Specific. Brutal.`;
+
+    const lines = this.wrapText(template, this.contentWidth - 16);
+
+    // Title
+    this.checkPage(16);
+    this.doc.setFontSize(11);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...CYAN);
+    this.doc.text("Prompt Template", this.margin, this.y);
+    this.y += 8;
+
+    // Render all lines, flowing across pages as needed
+    this.doc.setFontSize(7);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setTextColor(...GRAY_300);
+    lines.forEach((line: string) => {
+      this.checkPage(5);
+      this.doc.text(line, this.margin + 4, this.y);
+      this.y += 3.5;
+    });
+
+    this.y += 6;
+  }
+
   footer() {
     this.checkPage(20);
     this.y += 4;
@@ -538,6 +572,7 @@ export async function downloadAuditPdf(audit: AuditData): Promise<void> {
   pdf.valuesDetail(audit);
   pdf.topActions(audit);
   pdf.companionBrief(audit.companionPromptBrief);
+  pdf.promptTemplate();
   pdf.footer();
 
   const filename = `Values-Signal-Audit-${audit.organisationName.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
