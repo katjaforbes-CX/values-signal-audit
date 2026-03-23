@@ -8,9 +8,19 @@ interface AuditData {
   values: Array<{
     name: string;
     category: string;
-    currentVisibility: { format: string };
-    currentCorroboration: { level: string };
+    strength: "hard" | "strong" | "moderate";
+    currentVisibility: {
+      format: string;
+      location: string;
+      assessment: string;
+    };
+    currentCorroboration: {
+      level: string;
+      sources: string;
+      assessment: string;
+    };
     gap: boolean;
+    gapType: string;
     action: string | null;
   }>;
   altitude: {
@@ -52,6 +62,37 @@ function getAltitudeColor(altitude: string): RGB {
   }
 }
 
+function getVisibilityColor(format: string): RGB {
+  const normalized = format.toLowerCase();
+  if (normalized.includes("machine")) return GREEN;
+  if (normalized.includes("human")) return ORANGE;
+  return RED;
+}
+
+function getCorroborationColor(level: string): RGB {
+  const normalized = level.toLowerCase();
+  if (normalized.includes("strong") || normalized.includes("independent")) return GREEN;
+  if (normalized.includes("some") || normalized.includes("partial")) return ORANGE;
+  return RED;
+}
+
+function getStrengthColor(strength: string): RGB {
+  switch (strength) {
+    case "hard": return RED;
+    case "strong": return ORANGE;
+    case "moderate": return GRAY_400;
+    default: return GRAY_400;
+  }
+}
+
+function getEffortColor(effort: string): RGB {
+  const normalized = effort.toLowerCase();
+  if (normalized.includes("low")) return GREEN;
+  if (normalized.includes("medium")) return ORANGE;
+  if (normalized.includes("high")) return RED;
+  return GRAY_400;
+}
+
 class PdfBuilder {
   private doc: jsPDF;
   private y: number;
@@ -91,6 +132,28 @@ class PdfBuilder {
 
   private wrapText(text: string, maxWidth: number): string[] {
     return this.doc.splitTextToSize(text, maxWidth);
+  }
+
+  /** Draw a small filled circle as a status indicator */
+  private drawDot(x: number, y: number, color: RGB) {
+    this.doc.setFillColor(...color);
+    this.doc.circle(x, y - 1, 1.5, "F");
+  }
+
+  /** Draw a rounded badge with text */
+  private drawBadge(x: number, y: number, text: string, bgColor: RGB, textColor: RGB): number {
+    this.doc.setFontSize(6);
+    const textWidth = this.doc.getTextWidth(text);
+    const padX = 3;
+    const padY = 1.5;
+    const badgeW = textWidth + padX * 2;
+    const badgeH = 5;
+
+    this.doc.setFillColor(...bgColor);
+    this.doc.roundedRect(x, y - badgeH + padY, badgeW, badgeH, 1.5, 1.5, "F");
+    this.doc.setTextColor(...textColor);
+    this.doc.text(text, x + padX, y - 0.5);
+    return badgeW + 2; // return width consumed + gap
   }
 
   header(audit: AuditData) {
@@ -185,64 +248,166 @@ class PdfBuilder {
     this.y = cardTop + cardH + 6;
   }
 
-  valuesTable(audit: AuditData) {
+  valuesDetail(audit: AuditData) {
     // Section title
     this.checkPage(12);
     this.doc.setFontSize(11);
     this.doc.setFont("helvetica", "bold");
     this.doc.setTextColor(...CYAN);
     this.doc.text("Value-by-Value Audit", this.margin, this.y);
-    this.y += 6;
+    this.y += 8;
 
-    // Table header
-    const colX = [this.margin, this.margin + 55, this.margin + 100, this.margin + 145];
-    this.checkPage(8);
-    this.doc.setFontSize(7);
-    this.doc.setTextColor(...GRAY_400);
-    this.doc.setFont("helvetica", "bold");
-    this.doc.text("VALUE", colX[0], this.y);
-    this.doc.text("VISIBILITY", colX[1], this.y);
-    this.doc.text("CORROBORATION", colX[2], this.y);
-    this.doc.text("STATUS", colX[3], this.y);
-    this.y += 2;
-    this.doc.setDrawColor(...CYAN);
-    this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
-    this.y += 5;
+    const pad = 8; // inner padding for cards
+    const innerWidth = this.contentWidth - pad * 2;
 
-    // Rows
-    this.doc.setFont("helvetica", "normal");
     audit.values.forEach((v) => {
-      this.checkPage(10);
+      // Pre-calculate card height
+      const visAssessLines = this.wrapText(v.currentVisibility.assessment, innerWidth - 8);
+      const corrAssessLines = this.wrapText(v.currentCorroboration.assessment, innerWidth - 8);
+      const actionLines = v.gap && v.action ? this.wrapText(v.action, innerWidth - 8) : [];
 
-      // Name (may need truncation)
-      this.doc.setFontSize(8);
-      this.doc.setTextColor(...WHITE);
-      const name = v.name.length > 30 ? v.name.slice(0, 28) + "..." : v.name;
-      this.doc.text(name, colX[0], this.y);
-
-      // Visibility
-      this.doc.setTextColor(...GRAY_400);
-      this.doc.setFontSize(7);
-      const vis = v.currentVisibility.format.length > 20 ? v.currentVisibility.format.slice(0, 18) + "..." : v.currentVisibility.format;
-      this.doc.text(vis, colX[1], this.y);
-
-      // Corroboration
-      const corr = v.currentCorroboration.level.length > 18 ? v.currentCorroboration.level.slice(0, 16) + "..." : v.currentCorroboration.level;
-      this.doc.text(corr, colX[2], this.y);
-
-      // Status
-      if (v.gap) {
-        this.doc.setTextColor(...ORANGE);
-        this.doc.text("Action needed", colX[3], this.y);
+      let cardH = 12; // top padding + value name row
+      cardH += 8; // badges row
+      // Visibility section
+      cardH += 6; // "VISIBILITY" label
+      cardH += 5; // format line
+      cardH += 4; // location line
+      cardH += visAssessLines.length * 3.5 + 2; // assessment lines
+      cardH += 3; // divider gap
+      // Corroboration section
+      cardH += 6; // "CORROBORATION" label
+      cardH += 5; // level line
+      cardH += 4; // sources line
+      cardH += corrAssessLines.length * 3.5 + 2; // assessment lines
+      cardH += 3; // divider gap
+      // Gap/action section
+      if (v.gap && v.action) {
+        cardH += 5 + actionLines.length * 3.5 + 4;
       } else {
+        cardH += 8;
+      }
+      cardH += 4; // bottom padding
+
+      // Draw the card background — if it won't fit, start a new page
+      this.checkPage(cardH + 6);
+      this.doc.setFillColor(...NAVY_CARD);
+      this.doc.roundedRect(this.margin, this.y, this.contentWidth, cardH, 4, 4, "F");
+      const cardTop = this.y;
+      let ty = cardTop + 10;
+
+      // === Value Name ===
+      this.doc.setFontSize(10);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setTextColor(...WHITE);
+      this.doc.text(v.name, this.margin + pad, ty);
+      ty += 7;
+
+      // === Category & Strength badges ===
+      let badgeX = this.margin + pad;
+      badgeX += this.drawBadge(badgeX, ty, v.category, NAVY_DEEP, GRAY_300);
+      this.drawBadge(badgeX, ty, v.strength, getStrengthColor(v.strength), WHITE);
+      ty += 6;
+
+      // === Visibility Section ===
+      this.doc.setFontSize(6);
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.text("VISIBILITY", this.margin + pad, ty);
+      ty += 5;
+
+      // Dot + format
+      this.drawDot(this.margin + pad + 1.5, ty, getVisibilityColor(v.currentVisibility.format));
+      this.doc.setFontSize(8);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setTextColor(...WHITE);
+      this.doc.text(v.currentVisibility.format, this.margin + pad + 6, ty);
+      ty += 4;
+
+      // Location
+      this.doc.setFontSize(7);
+      this.doc.setFont("helvetica", "normal");
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.text(v.currentVisibility.location, this.margin + pad + 6, ty);
+      ty += 4;
+
+      // Assessment
+      this.doc.setFontSize(7);
+      this.doc.setTextColor(...GRAY_300);
+      visAssessLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + pad + 6, ty);
+        ty += 3.5;
+      });
+      ty += 2;
+
+      // Divider
+      this.doc.setDrawColor(...NAVY_DEEP);
+      this.doc.line(this.margin + pad, ty, this.margin + this.contentWidth - pad, ty);
+      ty += 4;
+
+      // === Corroboration Section ===
+      this.doc.setFontSize(6);
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.text("CORROBORATION", this.margin + pad, ty);
+      ty += 5;
+
+      // Dot + level
+      this.drawDot(this.margin + pad + 1.5, ty, getCorroborationColor(v.currentCorroboration.level));
+      this.doc.setFontSize(8);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setTextColor(...WHITE);
+      this.doc.text(v.currentCorroboration.level, this.margin + pad + 6, ty);
+      ty += 4;
+
+      // Sources
+      this.doc.setFontSize(7);
+      this.doc.setFont("helvetica", "normal");
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.text(v.currentCorroboration.sources, this.margin + pad + 6, ty);
+      ty += 4;
+
+      // Assessment
+      this.doc.setFontSize(7);
+      this.doc.setTextColor(...GRAY_300);
+      corrAssessLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + pad + 6, ty);
+        ty += 3.5;
+      });
+      ty += 2;
+
+      // Divider
+      this.doc.setDrawColor(...NAVY_DEEP);
+      this.doc.line(this.margin + pad, ty, this.margin + this.contentWidth - pad, ty);
+      ty += 4;
+
+      // === Gap / Action Section ===
+      if (v.gap && v.action) {
+        // Orange left border accent
+        this.doc.setFillColor(...ORANGE);
+        this.doc.rect(this.margin + pad, ty - 1, 1.5, actionLines.length * 3.5 + 6, "F");
+
+        this.doc.setFontSize(6);
+        this.doc.setFont("helvetica", "bold");
+        this.doc.setTextColor(...ORANGE);
+        this.doc.text("ACTION REQUIRED", this.margin + pad + 5, ty);
+        ty += 4;
+
+        this.doc.setFontSize(7.5);
+        this.doc.setFont("helvetica", "normal");
+        this.doc.setTextColor(...WHITE);
+        actionLines.forEach((line: string) => {
+          this.doc.text(line, this.margin + pad + 5, ty);
+          ty += 3.5;
+        });
+      } else {
+        // Green check
+        this.doc.setFontSize(8);
         this.doc.setTextColor(...GREEN);
-        this.doc.text("OK", colX[3], this.y);
+        this.doc.setFont("helvetica", "normal");
+        this.doc.text("No gap identified", this.margin + pad, ty);
       }
 
-      this.y += 3;
-      this.doc.setDrawColor(43, 49, 73);
-      this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
-      this.y += 5;
+      this.y = cardTop + cardH + 5;
     });
 
     this.y += 4;
@@ -259,7 +424,7 @@ class PdfBuilder {
     audit.topThreeActions.forEach((a) => {
       const actionLines = this.wrapText(a.action, this.contentWidth - 20);
       const impactLines = this.wrapText(a.impact, this.contentWidth - 20);
-      const cardH = 14 + actionLines.length * 4.5 + impactLines.length * 3.5 + 8;
+      const cardH = 14 + actionLines.length * 4.5 + impactLines.length * 3.5 + 12;
       const cardTop = this.drawCard(cardH);
       let ty = cardTop + 8;
 
@@ -290,9 +455,8 @@ class PdfBuilder {
       ty += 3;
 
       // Effort badge
-      this.doc.setFontSize(7);
-      this.doc.setTextColor(...GRAY_400);
-      this.doc.text(`Effort: ${a.effort}`, this.margin + 18, ty);
+      const effortColor = getEffortColor(a.effort);
+      this.drawBadge(this.margin + 18, ty, `Effort: ${a.effort}`, effortColor, WHITE);
 
       this.y = cardTop + cardH + 5;
     });
@@ -300,30 +464,26 @@ class PdfBuilder {
 
   companionBrief(brief: string) {
     const lines = this.wrapText(brief, this.contentWidth - 16);
-    const cardH = Math.min(16 + lines.length * 3.5, 120);
-    const cardTop = this.drawCard(cardH);
-    let ty = cardTop + 10;
 
+    // Title
+    this.checkPage(16);
     this.doc.setFontSize(11);
     this.doc.setFont("helvetica", "bold");
     this.doc.setTextColor(...CYAN);
-    this.doc.text("Your Stratospheric Signal Brief", this.margin + 8, ty);
-    ty += 7;
+    this.doc.text("Your Stratospheric Signal Brief", this.margin, this.y);
+    this.y += 8;
 
+    // Render all lines, flowing across pages as needed
     this.doc.setFontSize(7);
     this.doc.setFont("helvetica", "normal");
     this.doc.setTextColor(...GRAY_300);
-    const maxLines = Math.floor((cardH - 20) / 3.5);
-    lines.slice(0, maxLines).forEach((line: string) => {
-      this.doc.text(line, this.margin + 8, ty);
-      ty += 3.5;
+    lines.forEach((line: string) => {
+      this.checkPage(5);
+      this.doc.text(line, this.margin + 4, this.y);
+      this.y += 3.5;
     });
-    if (lines.length > maxLines) {
-      this.doc.setTextColor(...GRAY_400);
-      this.doc.text("(continued in full report on screen)", this.margin + 8, ty);
-    }
 
-    this.y = cardTop + cardH + 6;
+    this.y += 6;
   }
 
   footer() {
@@ -369,7 +529,7 @@ export async function downloadAuditPdf(audit: AuditData): Promise<void> {
     pdf.textCard("What We Found Online", audit.webResearchSummary);
   }
 
-  pdf.valuesTable(audit);
+  pdf.valuesDetail(audit);
   pdf.topActions(audit);
   pdf.companionBrief(audit.companionPromptBrief);
   pdf.footer();
