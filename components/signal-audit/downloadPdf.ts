@@ -428,8 +428,9 @@ class PdfBuilder {
     this.y += 8;
 
     audit.topThreeActions.forEach((a) => {
-      const actionLines = this.wrapText(a.action, this.contentWidth - 20);
-      const impactLines = this.wrapText(a.impact, this.contentWidth - 20);
+      const textWidth = this.contentWidth - 26; // 18mm left (number col) + 8mm right padding
+      const actionLines = this.wrapText(a.action, textWidth);
+      const impactLines = this.wrapText(a.impact, textWidth);
       const cardH = 14 + actionLines.length * 4.5 + impactLines.length * 3.5 + 12;
       const cardTop = this.drawCard(cardH);
       let ty = cardTop + 8;
