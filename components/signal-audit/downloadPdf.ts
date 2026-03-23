@@ -429,7 +429,12 @@ class PdfBuilder {
 
     audit.topThreeActions.forEach((a) => {
       const textWidth = this.contentWidth - 26; // 18mm left (number col) + 8mm right padding
+      // Set correct font BEFORE calculating wrap so splitTextToSize uses accurate char widths
+      this.doc.setFontSize(9);
+      this.doc.setFont("helvetica", "bold");
       const actionLines = this.wrapText(a.action, textWidth);
+      this.doc.setFontSize(8);
+      this.doc.setFont("helvetica", "normal");
       const impactLines = this.wrapText(a.impact, textWidth);
       const cardH = 14 + actionLines.length * 4.5 + impactLines.length * 3.5 + 12;
       const cardTop = this.drawCard(cardH);
