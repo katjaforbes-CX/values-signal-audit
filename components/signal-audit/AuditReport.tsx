@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { downloadAuditPdf } from "./downloadPdf";
 
 interface AuditReportProps {
   audit: {
@@ -172,6 +173,38 @@ const AltitudeIndicator: React.FC<{ current: string }> = ({ current }) => {
   );
 };
 
+const DownloadButton: React.FC<{ audit: AuditReportProps["audit"] }> = ({ audit }) => {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadAuditPdf(audit);
+    } catch (err) {
+      console.error("PDF download failed:", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      className="inline-flex items-center gap-2 bg-cyan/10 border border-cyan/30 text-cyan hover:bg-cyan/20 px-5 py-2.5 rounded-full font-body text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {downloading ? (
+        "Generating PDF..."
+      ) : (
+        <>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Report
+        </>
+      )}
+    </button>
+  );
+};
+
 export const AuditReport: React.FC<AuditReportProps> = ({ audit }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -205,9 +238,10 @@ export const AuditReport: React.FC<AuditReportProps> = ({ audit }) => {
         <h1 className="text-5xl md:text-6xl font-heading text-white mb-6">
           {audit.organisationName}
         </h1>
-        <p className="text-lg text-gray-300 leading-relaxed max-w-3xl">
+        <p className="text-lg text-gray-300 leading-relaxed max-w-3xl mb-6">
           {audit.summary}
         </p>
+        <DownloadButton audit={audit} />
       </motion.section>
 
       {/* Web Research Summary */}
