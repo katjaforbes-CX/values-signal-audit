@@ -1,5 +1,7 @@
 "use client";
 
+import jsPDF from "jspdf";
+
 interface AuditData {
   organisationName: string;
   summary: string;
@@ -28,215 +30,350 @@ interface AuditData {
   companionPromptBrief: string;
 }
 
-function getAltitudeColor(altitude: string): string {
+// Design tokens
+const NAVY_DEEP = [20, 27, 53] as const;
+const NAVY_CARD = [43, 49, 73] as const;
+const CYAN = [79, 183, 217] as const;
+const ORANGE = [243, 123, 52] as const;
+const WHITE = [255, 255, 255] as const;
+const GRAY_300 = [209, 213, 219] as const;
+const GRAY_400 = [156, 163, 175] as const;
+const GREEN = [16, 185, 129] as const;
+const RED = [248, 113, 113] as const;
+
+type RGB = readonly [number, number, number];
+
+function getAltitudeColor(altitude: string): RGB {
   switch (altitude.toUpperCase()) {
-    case "STRATOSPHERIC":
-      return "#10b981";
-    case "TRUST":
-      return "#F37B34";
-    case "FOUNDATION":
-      return "#f87171";
-    default:
-      return "#4FB7D9";
+    case "STRATOSPHERIC": return GREEN;
+    case "TRUST": return ORANGE;
+    case "FOUNDATION": return RED;
+    default: return CYAN;
   }
 }
 
-function buildPdfHtml(audit: AuditData): string {
-  const altitudeColor = getAltitudeColor(audit.altitude.current);
+class PdfBuilder {
+  private doc: jsPDF;
+  private y: number;
+  private pageWidth: number;
+  private margin: number;
+  private contentWidth: number;
 
-  const valuesRows = audit.values
-    .map(
-      (v) => `
-      <tr>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #ffffff; font-size: 12px;">${v.name}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #9ca3af; text-align: center; font-size: 11px;">${v.currentVisibility.format}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #9ca3af; text-align: center; font-size: 11px;">${v.currentCorroboration.level}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; text-align: center; font-size: 11px;">
-          ${v.gap ? '<span style="color: #F37B34;">Action needed</span>' : '<span style="color: #10b981;">&#10003;</span>'}
-        </td>
-      </tr>`
-    )
-    .join("");
+  constructor() {
+    this.doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    this.pageWidth = 210;
+    this.margin = 20;
+    this.contentWidth = this.pageWidth - this.margin * 2;
+    this.y = 0;
+    this.fillBackground();
+    this.y = this.margin;
+  }
 
-  const actionsRows = audit.topThreeActions
-    .map(
-      (a) => `
-      <tr>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #4FB7D9; font-weight: bold; width: 30px; font-size: 14px;">${a.priority}</td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #ffffff; font-size: 12px;">
-          <strong>${a.action}</strong>
-          <div style="color: #9ca3af; font-size: 11px; margin-top: 4px;">${a.impact}</div>
-        </td>
-        <td style="padding: 10px 12px; border-bottom: 1px solid #2B3149; color: #9ca3af; font-size: 11px;">${a.effort}</td>
-      </tr>`
-    )
-    .join("");
+  private fillBackground() {
+    this.doc.setFillColor(...NAVY_DEEP);
+    this.doc.rect(0, 0, 210, 297, "F");
+  }
 
-  const gapValues = audit.values.filter((v) => v.gap && v.action);
-  const gapSection =
-    gapValues.length > 0
-      ? `
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #F37B34; font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1px;">Gaps Identified</h3>
-      ${gapValues
-        .map(
-          (v) => `
-        <div style="border-left: 3px solid #F37B34; padding: 8px 12px; margin-bottom: 8px; background: rgba(243,123,52,0.05); border-radius: 0 8px 8px 0;">
-          <p style="color: #ffffff; font-size: 12px; font-weight: bold; margin: 0 0 4px;">${v.name}</p>
-          <p style="color: #d1d5db; font-size: 11px; margin: 0;">${v.action}</p>
-        </div>`
-        )
-        .join("")}
-    </div>`
-      : "";
+  private checkPage(needed: number) {
+    if (this.y + needed > 280) {
+      this.doc.addPage();
+      this.fillBackground();
+      this.y = this.margin;
+    }
+  }
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background-color: #141B35; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #ffffff; }
-  </style>
-</head>
-<body>
-  <div style="max-width: 700px; margin: 0 auto; padding: 30px 24px;">
+  private drawCard(height: number): number {
+    this.checkPage(height + 8);
+    this.doc.setFillColor(...NAVY_CARD);
+    this.doc.roundedRect(this.margin, this.y, this.contentWidth, height, 4, 4, "F");
+    return this.y;
+  }
 
-    <!-- Header -->
-    <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #2B3149;">
-      <p style="color: #ffffff60; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin: 0 0 12px;">The CX Evolutionist</p>
-      <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 0 0 6px;">Values Signal Audit</h1>
-      <p style="color: #9ca3af; font-size: 13px; margin: 0;">${audit.organisationName}</p>
-    </div>
+  private wrapText(text: string, maxWidth: number): string[] {
+    return this.doc.splitTextToSize(text, maxWidth);
+  }
 
-    <!-- Altitude Score -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 24px; margin-bottom: 20px; text-align: center;">
-      <p style="color: #9ca3af; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 10px;">Current Altitude</p>
-      <h2 style="color: ${altitudeColor}; font-size: 32px; font-weight: bold; margin: 0 0 12px;">${audit.altitude.current}</h2>
-      <p style="color: #9ca3af; font-size: 12px; margin: 0 0 12px;">
-        Machine-readable: ${audit.altitude.machineReadableCount}/${audit.altitude.totalValues} &nbsp;&bull;&nbsp;
-        Strong corroboration: ${audit.altitude.strongCorroborationCount}/${audit.altitude.totalValues}
-      </p>
-      <p style="color: #d1d5db; font-size: 12px; line-height: 1.5; margin: 0;">${audit.altitude.justification}</p>
-    </div>
+  header(audit: AuditData) {
+    // "THE CX EVOLUTIONIST"
+    this.doc.setFontSize(8);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.text("THE CX EVOLUTIONIST", this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 8;
 
-    <!-- Summary -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #4FB7D9; font-size: 14px; margin: 0 0 10px;">Executive Summary</h3>
-      <p style="color: #d1d5db; font-size: 12px; line-height: 1.6; margin: 0;">${audit.summary}</p>
-    </div>
+    // "VALUES SIGNAL AUDIT"
+    this.doc.setFontSize(22);
+    this.doc.setTextColor(...WHITE);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.text("VALUES SIGNAL AUDIT", this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 7;
 
-    ${
-      audit.webResearchSummary
-        ? `
-    <!-- Web Research -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #4FB7D9; font-size: 14px; margin: 0 0 10px;">What We Found Online</h3>
-      <p style="color: #d1d5db; font-size: 12px; line-height: 1.6; margin: 0;">${audit.webResearchSummary}</p>
-    </div>`
-        : ""
+    // Org name
+    this.doc.setFontSize(11);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.text(audit.organisationName, this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 6;
+
+    // Divider
+    this.doc.setDrawColor(...NAVY_CARD);
+    this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
+    this.y += 8;
+  }
+
+  altitudeScore(audit: AuditData) {
+    const cardH = 52;
+    const cardTop = this.drawCard(cardH);
+    const cx = this.pageWidth / 2;
+    let ty = cardTop + 10;
+
+    // Label
+    this.doc.setFontSize(7);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.text("CURRENT ALTITUDE", cx, ty, { align: "center" });
+    ty += 10;
+
+    // Score
+    this.doc.setFontSize(28);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...getAltitudeColor(audit.altitude.current));
+    this.doc.text(audit.altitude.current, cx, ty, { align: "center" });
+    ty += 10;
+
+    // Stats
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.text(
+      `Machine-readable: ${audit.altitude.machineReadableCount}/${audit.altitude.totalValues}    Strong corroboration: ${audit.altitude.strongCorroborationCount}/${audit.altitude.totalValues}`,
+      cx, ty, { align: "center" }
+    );
+    ty += 8;
+
+    // Justification
+    this.doc.setFontSize(8);
+    this.doc.setTextColor(...GRAY_300);
+    const justLines = this.wrapText(audit.altitude.justification, this.contentWidth - 16);
+    justLines.forEach((line: string) => {
+      this.doc.text(line, this.margin + 8, ty);
+      ty += 4;
+    });
+
+    this.y = cardTop + cardH + 6;
+  }
+
+  textCard(title: string, body: string) {
+    const lines = this.wrapText(body, this.contentWidth - 16);
+    const cardH = 16 + lines.length * 4;
+    const cardTop = this.drawCard(cardH);
+    let ty = cardTop + 10;
+
+    this.doc.setFontSize(11);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...CYAN);
+    this.doc.text(title, this.margin + 8, ty);
+    ty += 7;
+
+    this.doc.setFontSize(8);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setTextColor(...GRAY_300);
+    lines.forEach((line: string) => {
+      this.checkPage(5);
+      this.doc.text(line, this.margin + 8, ty);
+      ty += 4;
+    });
+
+    this.y = cardTop + cardH + 6;
+  }
+
+  valuesTable(audit: AuditData) {
+    // Section title
+    this.checkPage(12);
+    this.doc.setFontSize(11);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...CYAN);
+    this.doc.text("Value-by-Value Audit", this.margin, this.y);
+    this.y += 6;
+
+    // Table header
+    const colX = [this.margin, this.margin + 55, this.margin + 100, this.margin + 145];
+    this.checkPage(8);
+    this.doc.setFontSize(7);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.text("VALUE", colX[0], this.y);
+    this.doc.text("VISIBILITY", colX[1], this.y);
+    this.doc.text("CORROBORATION", colX[2], this.y);
+    this.doc.text("STATUS", colX[3], this.y);
+    this.y += 2;
+    this.doc.setDrawColor(...CYAN);
+    this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
+    this.y += 5;
+
+    // Rows
+    this.doc.setFont("helvetica", "normal");
+    audit.values.forEach((v) => {
+      this.checkPage(10);
+
+      // Name (may need truncation)
+      this.doc.setFontSize(8);
+      this.doc.setTextColor(...WHITE);
+      const name = v.name.length > 30 ? v.name.slice(0, 28) + "..." : v.name;
+      this.doc.text(name, colX[0], this.y);
+
+      // Visibility
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.setFontSize(7);
+      const vis = v.currentVisibility.format.length > 20 ? v.currentVisibility.format.slice(0, 18) + "..." : v.currentVisibility.format;
+      this.doc.text(vis, colX[1], this.y);
+
+      // Corroboration
+      const corr = v.currentCorroboration.level.length > 18 ? v.currentCorroboration.level.slice(0, 16) + "..." : v.currentCorroboration.level;
+      this.doc.text(corr, colX[2], this.y);
+
+      // Status
+      if (v.gap) {
+        this.doc.setTextColor(...ORANGE);
+        this.doc.text("Action needed", colX[3], this.y);
+      } else {
+        this.doc.setTextColor(...GREEN);
+        this.doc.text("OK", colX[3], this.y);
+      }
+
+      this.y += 3;
+      this.doc.setDrawColor(43, 49, 73);
+      this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
+      this.y += 5;
+    });
+
+    this.y += 4;
+  }
+
+  topActions(audit: AuditData) {
+    this.checkPage(14);
+    this.doc.setFontSize(11);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...CYAN);
+    this.doc.text("Top 3 Priority Actions", this.margin, this.y);
+    this.y += 8;
+
+    audit.topThreeActions.forEach((a) => {
+      const actionLines = this.wrapText(a.action, this.contentWidth - 20);
+      const impactLines = this.wrapText(a.impact, this.contentWidth - 20);
+      const cardH = 14 + actionLines.length * 4.5 + impactLines.length * 3.5 + 8;
+      const cardTop = this.drawCard(cardH);
+      let ty = cardTop + 8;
+
+      // Priority number
+      this.doc.setFontSize(20);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setTextColor(...CYAN);
+      this.doc.text(String(a.priority), this.margin + 6, ty + 2);
+
+      // Action
+      this.doc.setFontSize(9);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setTextColor(...WHITE);
+      actionLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + 18, ty);
+        ty += 4.5;
+      });
+      ty += 2;
+
+      // Impact
+      this.doc.setFontSize(8);
+      this.doc.setFont("helvetica", "normal");
+      this.doc.setTextColor(...GRAY_300);
+      impactLines.forEach((line: string) => {
+        this.doc.text(line, this.margin + 18, ty);
+        ty += 3.5;
+      });
+      ty += 3;
+
+      // Effort badge
+      this.doc.setFontSize(7);
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.text(`Effort: ${a.effort}`, this.margin + 18, ty);
+
+      this.y = cardTop + cardH + 5;
+    });
+  }
+
+  companionBrief(brief: string) {
+    const lines = this.wrapText(brief, this.contentWidth - 16);
+    const cardH = Math.min(16 + lines.length * 3.5, 120);
+    const cardTop = this.drawCard(cardH);
+    let ty = cardTop + 10;
+
+    this.doc.setFontSize(11);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...CYAN);
+    this.doc.text("Your Stratospheric Signal Brief", this.margin + 8, ty);
+    ty += 7;
+
+    this.doc.setFontSize(7);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setTextColor(...GRAY_300);
+    const maxLines = Math.floor((cardH - 20) / 3.5);
+    lines.slice(0, maxLines).forEach((line: string) => {
+      this.doc.text(line, this.margin + 8, ty);
+      ty += 3.5;
+    });
+    if (lines.length > maxLines) {
+      this.doc.setTextColor(...GRAY_400);
+      this.doc.text("(continued in full report on screen)", this.margin + 8, ty);
     }
 
-    <!-- Values Table -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #4FB7D9; font-size: 14px; margin: 0 0 14px;">Value-by-Value Audit</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr>
-            <th style="padding: 8px 12px; text-align: left; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Value</th>
-            <th style="padding: 8px 12px; text-align: center; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Visibility</th>
-            <th style="padding: 8px 12px; text-align: center; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Corroboration</th>
-            <th style="padding: 8px 12px; text-align: center; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${valuesRows}
-        </tbody>
-      </table>
-    </div>
+    this.y = cardTop + cardH + 6;
+  }
 
-    ${gapSection}
+  footer() {
+    this.checkPage(20);
+    this.y += 4;
 
-    <!-- Top 3 Actions -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #4FB7D9; font-size: 14px; margin: 0 0 14px;">Top 3 Priority Actions</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-          <tr>
-            <th style="padding: 8px 12px; text-align: left; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">#</th>
-            <th style="padding: 8px 12px; text-align: left; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Action</th>
-            <th style="padding: 8px 12px; text-align: left; color: #9ca3af; border-bottom: 2px solid #4FB7D9; font-size: 10px; text-transform: uppercase;">Effort</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${actionsRows}
-        </tbody>
-      </table>
-    </div>
+    // CTA
+    this.doc.setFontSize(10);
+    this.doc.setTextColor(...GRAY_400);
+    this.doc.text("Want help getting to Stratospheric altitude?", this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 6;
+    this.doc.setFontSize(10);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setTextColor(...ORANGE);
+    this.doc.text("Book a call: thecxevolutionist.ai/scheduling", this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 12;
 
-    <!-- Companion Brief -->
-    <div style="background-color: #2B3149; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <h3 style="color: #4FB7D9; font-size: 14px; margin: 0 0 10px;">Your Stratospheric Signal Brief</h3>
-      <div style="background-color: #141B35; border-radius: 8px; padding: 16px; border: 1px solid #3A4160;">
-        <p style="color: #d1d5db; font-size: 11px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${audit.companionPromptBrief}</p>
-      </div>
-    </div>
+    // Footer line
+    this.doc.setDrawColor(...NAVY_CARD);
+    this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
+    this.y += 6;
+    this.doc.setFontSize(7);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setTextColor(100, 100, 120);
+    this.doc.text("Part of the Three Altitudes of Agentic Commerce framework", this.pageWidth / 2, this.y, { align: "center" });
+    this.y += 4;
+    this.doc.text("Katja Forbes / The CX Evolutionist", this.pageWidth / 2, this.y, { align: "center" });
+  }
 
-    <!-- CTA -->
-    <div style="text-align: center; margin: 30px 0 20px;">
-      <p style="color: #9ca3af; font-size: 12px; margin: 0 0 6px;">Want help getting to Stratospheric altitude?</p>
-      <p style="color: #F37B34; font-size: 14px; font-weight: bold;">Book a call: thecxevolutionist.ai/scheduling</p>
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align: center; padding-top: 20px; border-top: 1px solid #2B3149;">
-      <p style="color: #ffffff40; font-size: 9px; margin: 0;">Part of the Three Altitudes of Agentic Commerce framework</p>
-      <p style="color: #ffffff30; font-size: 9px; margin: 4px 0 0;">Katja Forbes / The CX Evolutionist</p>
-    </div>
-
-  </div>
-</body>
-</html>`;
+  save(filename: string) {
+    this.doc.save(filename);
+  }
 }
 
 export async function downloadAuditPdf(audit: AuditData): Promise<void> {
-  const html2pdf = (await import("html2pdf.js")).default;
+  const pdf = new PdfBuilder();
 
-  const container = document.createElement("div");
-  container.innerHTML = buildPdfHtml(audit);
-  // Must be on-screen for html2canvas to render — hide visually with z-index
-  container.style.position = "fixed";
-  container.style.top = "0";
-  container.style.left = "0";
-  container.style.width = "700px";
-  container.style.zIndex = "-9999";
-  container.style.opacity = "1";
-  document.body.appendChild(container);
+  pdf.header(audit);
+  pdf.altitudeScore(audit);
+  pdf.textCard("Executive Summary", audit.summary);
+
+  if (audit.webResearchSummary) {
+    pdf.textCard("What We Found Online", audit.webResearchSummary);
+  }
+
+  pdf.valuesTable(audit);
+  pdf.topActions(audit);
+  pdf.companionBrief(audit.companionPromptBrief);
+  pdf.footer();
 
   const filename = `Values-Signal-Audit-${audit.organisationName.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
-
-  try {
-    await html2pdf()
-      .set({
-        margin: 0,
-        filename,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          backgroundColor: "#141B35",
-          useCORS: true,
-          windowWidth: 700,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-        },
-      })
-      .from(container)
-      .save();
-  } finally {
-    document.body.removeChild(container);
-  }
+  pdf.save(filename);
 }
